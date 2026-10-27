@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {buildPolymer, getTemplate, toPDB, toSDF} from '../src/polymer.js';
+import {buildPolymer, getTemplate, toPDB, toSDF, MAX_REPEATS} from '../src/polymer.js';
 
 const templates = JSON.parse(readFileSync(new URL('../data/templates.json', import.meta.url)));
 const edge = (a,b) => [a,b].sort((x,y)=>x-y).join(':');
@@ -61,9 +61,12 @@ test('all 16 source pairs match recorded SHA256 provenance',()=>{
   }
 });
 
-for (const template of Object.values(templates)) for (const repeats of [1,2,12,100]) {
+for (const template of Object.values(templates)) for (const repeats of [1,2,12,MAX_REPEATS]) {
   test(`${template.name} DP${repeats}: PDB and V3000 graph/charge/coordinate roundtrips`,()=>{
     const model=buildPolymer(templates,{group:template.group,carbons:template.carbons,repeats});
+    assert.equal(model.metadata.name,`${template.groupName} C${template.carbons} DP${repeats} CH3`);
+    assert.equal(toSDF(model).split('\n')[0],model.metadata.name);
+    assert.ok(toPDB(model).includes(`TITLE     ${model.metadata.name}`));
     const pdb=parsePDB(toPDB(model)),sdf=parseV3000(toSDF(model));
     assert.equal(model.atoms.length,template.atoms.length*repeats-2*repeats+8);
     assert.equal(model.bonds.length,template.bonds.length*repeats-repeats+7);
@@ -92,7 +95,7 @@ test('builds are deterministic and do not mutate the templates',()=>{
 });
 
 test('both main-chain endpoints have new neutral methyl caps, including DP1',()=>{
-  for (const template of Object.values(templates)) for (const repeats of [1,2,12,100]) {
+  for (const template of Object.values(templates)) for (const repeats of [1,2,12,MAX_REPEATS]) {
     const model=buildPolymer(templates,{group:template.group,carbons:template.carbons,repeats});
     const neighbors=model.atoms.map(()=>[]);
     for (const {a,b} of model.bonds) {neighbors[a].push(b);neighbors[b].push(a);}
@@ -129,10 +132,18 @@ test('both main-chain endpoints have new neutral methyl caps, including DP1',()=
   }
 });
 
+test('every chemical template rejects repeat counts above the maximum of 30',()=>{
+  assert.equal(MAX_REPEATS,30);
+  for (const template of Object.values(templates)) {
+    assert.throws(()=>buildPolymer(templates,{group:template.group,carbons:template.carbons,repeats:31}),/integer from 1 to 30/);
+  }
+});
+
 test('invalid selections and non-finite export coordinates are rejected',()=>{
-  for (const repeats of [0,-1,101,1.5,NaN,'2']) assert.throws(()=>buildPolymer(templates,{group:'PA',carbons:4,repeats}),RangeError);
-  assert.throws(()=>getTemplate(templates,'NA',4),RangeError);
+  for (const repeats of [0,-1,31,100,101,1.5,NaN,'2']) assert.throws(()=>buildPolymer(templates,{group:'PA',carbons:4,repeats}),RangeError);
+  assert.throws(()=>getTemplate(templates,'NA',4),/primary ammonium, quaternary ammonium, guanidinium or imidazolium/);
   assert.throws(()=>getTemplate(templates,'PA',5),RangeError);
+  assert.throws(()=>getTemplate({},'IL',4),/Missing chemical template for Imidazolium, C4/);
   const model=buildPolymer(templates,{group:'PA',carbons:4,repeats:1});
   model.atoms[0].x=NaN;
   assert.throws(()=>toPDB(model),/finite/);

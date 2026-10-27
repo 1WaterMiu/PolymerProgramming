@@ -1,19 +1,22 @@
 import { MoleculeViewer } from './viewer.js';
-import { buildPolymer, toPDB, toSDF } from './polymer.js';
+import { buildPolymer, toPDB, toSDF, MAX_REPEATS } from './polymer.js';
 
 const $ = id => document.getElementById(id);
 const groups = {
-  PA: { name: 'Primary ammonium', description: 'A compact, protonated amine.' },
-  QA: { name: 'Quaternary ammonium', description: 'Three methyls. A permanent charge.' },
-  GD: { name: 'Guanidinium', description: 'A resonance-stabilized cation.' },
-  IL: { name: 'Imidazolium', description: 'An aromatic, five-membered ring.' },
+  PA: { name: 'Primary ammonium', slug: 'primary-ammonium', description: 'A compact, protonated amine.' },
+  QA: { name: 'Quaternary ammonium', slug: 'quaternary-ammonium', description: 'Three methyls. A permanent charge.' },
+  GD: { name: 'Guanidinium', slug: 'guanidinium', description: 'A resonance-stabilized cation.' },
+  IL: { name: 'Imidazolium', slug: 'imidazolium', description: 'An aromatic, five-membered ring.' },
 };
 const lengths = [4, 6, 8, 10];
 const search = new URLSearchParams(location.search);
+const requestedGroup = search.get('group');
+const initialGroup = Object.keys(groups).find(group => groups[group].slug === requestedGroup) || (Object.hasOwn(groups, requestedGroup) ? requestedGroup : 'PA');
+const requestedRepeats = Number(search.get('repeats'));
 const state = {
-  group: Object.hasOwn(groups, search.get('group')) ? search.get('group') : 'PA',
+  group: initialGroup,
   carbons: lengths.includes(Number(search.get('carbons'))) ? Number(search.get('carbons')) : 4,
-  repeats: /^\d+$/.test(search.get('repeats') || '') && Number(search.get('repeats')) >= 1 && Number(search.get('repeats')) <= 100 ? Number(search.get('repeats')) : 12,
+  repeats: Number.isInteger(requestedRepeats) && requestedRepeats >= 1 ? Math.min(requestedRepeats, MAX_REPEATS) : 12,
   templates: null, model: null, builtConfig: null, busy: false, error: null,
 };
 let viewer, worker, job = 0, toastTimer;
@@ -38,9 +41,9 @@ function setStatus(message, dirty = false) {
 
 function updateTitle() {
   const current = state.builtConfig || config();
-  $('model-title').replaceChildren(document.createTextNode(`${current.group}–C${current.carbons}`));
+  $('model-title').replaceChildren(document.createTextNode(groups[current.group].name));
   const detail = document.createElement('span');
-  detail.textContent = `/ ${current.repeats} ${current.repeats === 1 ? 'repeat' : 'repeats'}`;
+  detail.textContent = `C${current.carbons} · ${current.repeats} ${current.repeats === 1 ? 'repeat' : 'repeats'}`;
   $('model-title').append(detail);
 }
 
@@ -58,17 +61,19 @@ function updateSelection() {
     const active = button.dataset.template === key();
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
   });
-  $('selected-template').textContent = `${state.group} · C${state.carbons}`;
+  $('selected-template').textContent = `${groups[state.group].name} · C${state.carbons}`;
   const imagePath = `./assets/templates/${key()}.svg`;
   if ($('template-image').getAttribute('src') !== imagePath) $('template-image').src = imagePath;
   $('template-image').alt = `${groups[state.group].name}, C${state.carbons}: original hydrogen-capped monomer reference`;
-  $('template-caption').textContent = `Original H-capped reference · ${key()}`;
-  $('monomer-title').textContent = `${state.group}–C${state.carbons}`;
-  $('monomer-name').textContent = groups[state.group].name;
+  $('template-caption').textContent = 'Original H-capped reference';
+  $('monomer-title').textContent = groups[state.group].name;
+  $('monomer-name').textContent = `C${state.carbons} alkyl side chain`;
   $('monomer-image-link').href = imagePath;
   $('monomer-source-link').href = `./data/source/${key()}.pdb`;
+  $('monomer-source-link').download = `${groups[state.group].slug}_C${state.carbons}_source.pdb`;
   $('source-pdb-link').href = `./data/source/${key()}.pdb`;
-  $('source-pdb-link').textContent = `Original ${key()} PDB ↗`;
+  $('source-pdb-link').download = `${groups[state.group].slug}_C${state.carbons}_source.pdb`;
+  $('source-pdb-link').textContent = 'Download original monomer PDB ↗';
   const dirty = state.builtConfig && JSON.stringify(config()) !== JSON.stringify(state.builtConfig);
   if (!state.busy) {
     if (state.error) setStatus('Build failed', true);
@@ -82,7 +87,7 @@ function fillLibrary() {
   for (const [group, info] of Object.entries(groups)) {
     const card = document.createElement('article');
     card.className = 'library-card'; card.dataset.libraryGroup = group;
-    card.innerHTML = `<div class="library-card-top"><span class="library-code">${group}</span><span class="library-charge">+1 e / unit</span></div><h3>${info.name}</h3><p class="library-description">${info.description}</p><div class="library-options" role="group" aria-label="${info.name} templates"></div>`;
+    card.innerHTML = `<div class="library-card-top"><img class="library-headgroup-image" src="./assets/headgroups/${info.slug}.svg" alt="${info.name} headgroup"><span class="library-charge">+1 e / unit</span></div><h3>${info.name}</h3><p class="library-description">${info.description}</p><div class="library-options" role="group" aria-label="${info.name} templates"></div>`;
     for (const carbons of lengths) {
       const button = document.createElement('button'); button.type = 'button';
       button.textContent = `C${carbons}`; button.dataset.template = `${group}_${carbons}`;
@@ -90,7 +95,7 @@ function fillLibrary() {
       button.addEventListener('click', () => {
         state.group = group; state.carbons = carbons; updateSelection();
         $('workspace').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-        notify(`${group}–C${carbons} selected. Build to update the polymer.`);
+        notify(`${info.name} · C${carbons} selected. Build to update the polymer.`);
       });
       card.querySelector('.library-options').append(button);
     }
@@ -110,7 +115,7 @@ function requestBuild(settings) {
 async function generate() {
   if (!state.templates || state.busy) return;
   state.repeats = Number($('repeat-count').value);
-  if (!Number.isInteger(state.repeats) || state.repeats < 1 || state.repeats > 100) {
+  if (!Number.isInteger(state.repeats) || state.repeats < 1 || state.repeats > MAX_REPEATS) {
     $('repeat-error').hidden = false;
     $('repeat-count').setAttribute('aria-invalid', 'true');
     $('repeat-count').setAttribute('aria-describedby', 'repeat-error');
@@ -125,7 +130,7 @@ async function generate() {
   state.busy = true; state.error = null;
   $('build-button').disabled = true; $('build-button-label').textContent = 'Building your polymer…';
   $('stage-loading').hidden = false;
-  $('stage-loading').querySelector('p').textContent = `Connecting ${requested.repeats} ${requested.group}–C${requested.carbons} repeat units`;
+  $('stage-loading').querySelector('p').textContent = `Connecting ${requested.repeats} ${groups[requested.group].name.toLowerCase()} · C${requested.carbons} repeat units`;
   $('stage-error').hidden = true;
   setStatus('Building');
   try {
@@ -140,7 +145,7 @@ async function generate() {
     $('formula-display').textContent = `${formula} · ${requested.repeats} positive ${requested.repeats === 1 ? 'charge' : 'charges'}`;
     ['download-pdb', 'download-sdf', 'download-recipe'].forEach(id => { $(id).disabled = false; });
     const address = new URL(location.href);
-    for (const [name, value] of Object.entries(requested)) address.searchParams.set(name, value);
+    for (const [name, value] of Object.entries(requested)) address.searchParams.set(name, name === 'group' ? groups[value].slug : value);
     history.replaceState(null, '', address);
     viewer?.resize();
     setStatus('Ready');
@@ -160,7 +165,7 @@ async function generate() {
 function download(content, extension, mime) {
   if (!state.model) return;
   const built = state.builtConfig;
-  const filename = `${built.group}_C${built.carbons}_DP${built.repeats}_CH3.${extension}`;
+  const filename = `${groups[built.group].slug}_C${built.carbons}_DP${built.repeats}_CH3.${extension}`;
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
   const link = document.createElement('a'); link.href = url; link.download = filename;
   document.body.append(link); link.click(); link.remove();
@@ -185,7 +190,7 @@ $('carbon-options').addEventListener('click', event => {
 });
 $('repeat-count').addEventListener('input', () => {
   const value = Number($('repeat-count').value);
-  if (Number.isInteger(value) && value >= 1 && value <= 100) { state.repeats = value; $('repeat-slider').value = value; $('repeat-error').hidden = true; $('repeat-count').removeAttribute('aria-invalid'); $('repeat-count').removeAttribute('aria-describedby'); updateSelection(); }
+  if (Number.isInteger(value) && value >= 1 && value <= MAX_REPEATS) { state.repeats = value; $('repeat-slider').value = value; $('repeat-error').hidden = true; $('repeat-count').removeAttribute('aria-invalid'); $('repeat-count').removeAttribute('aria-describedby'); updateSelection(); }
 });
 $('repeat-slider').addEventListener('input', () => {
   state.repeats = Number($('repeat-slider').value); $('repeat-count').value = state.repeats; $('repeat-error').hidden = true; $('repeat-count').removeAttribute('aria-invalid'); $('repeat-count').removeAttribute('aria-describedby'); updateSelection();
@@ -213,8 +218,8 @@ $('guide-dialog').addEventListener('click', event => { if (event.target === $('g
 $('download-pdb').addEventListener('click', () => exportSafely('pdb', 'chemical/x-pdb', toPDB));
 $('download-sdf').addEventListener('click', () => exportSafely('sdf', 'chemical/x-mdl-sdfile', toSDF));
 $('download-recipe').addEventListener('click', () => exportSafely('json', 'application/json', model => JSON.stringify({
-  application: 'Polymer Programming', version: '1.1.0', settings: { ...state.builtConfig, endCaps: 'CH3' },
-  template: `${state.builtConfig.group}_${state.builtConfig.carbons}`,
+  application: 'Polymer Programming', version: '1.2.0', settings: { headgroup: groups[state.builtConfig.group].name, carbons: state.builtConfig.carbons, repeats: state.builtConfig.repeats, endCaps: 'CH3' },
+  template: `${groups[state.builtConfig.group].name} · C${state.builtConfig.carbons}`,
   stats: model.stats, metadata: model.metadata,
   source: state.templates[`${state.builtConfig.group}_${state.builtConfig.carbons}`].source,
   assembly: 'C4 of repeat i is bonded to C1 of repeat i+1. Both outer cap hydrogens are replaced by new neutral CH3 groups, bonded to the first C1 and last C4. The original C5 pendant methyl is retained.',
@@ -223,6 +228,9 @@ $('download-recipe').addEventListener('click', () => exportSafely('json', 'appli
 }, null, 2) + '\n'));
 
 fillLibrary();
+$('repeat-count').max = MAX_REPEATS;
+$('repeat-slider').max = MAX_REPEATS;
+$('repeat-error').textContent = `Enter a whole number between 1 and ${MAX_REPEATS}.`;
 $('repeat-count').value = state.repeats; $('repeat-slider').value = state.repeats;
 updateSelection();
 

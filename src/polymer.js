@@ -2,8 +2,13 @@
  * Coordinates are in angstroms. Bond endpoint indices are zero-based.
  * This is a deterministic initial-geometry builder, not a force-field engine.
  */
-const GROUPS = new Set(['PA', 'QA', 'GD', 'IL']);
+const GROUP_NAMES = {
+  PA: 'Primary ammonium', QA: 'Quaternary ammonium',
+  GD: 'Guanidinium', IL: 'Imidazolium',
+};
+const GROUPS = new Set(Object.keys(GROUP_NAMES));
 const LENGTHS = new Set([4, 6, 8, 10]);
+export const MAX_REPEATS = 30;
 const CC_LENGTH = 1.53;
 const CH_LENGTH = 1.09;
 const subtract = (a, b) => a.map((v, i) => v - b[i]);
@@ -37,9 +42,9 @@ function dihedral(a, b, c, d) {
 }
 
 export function getTemplate(templates, group, carbons) {
-  if (!GROUPS.has(group) || !LENGTHS.has(carbons)) throw new RangeError('Choose PA, QA, GD or IL and 4, 6, 8 or 10 alkyl carbons.');
+  if (!GROUPS.has(group) || !LENGTHS.has(carbons)) throw new RangeError('Choose primary ammonium, quaternary ammonium, guanidinium or imidazolium and 4, 6, 8 or 10 alkyl carbons.');
   const template = templates[`${group}_${carbons}`];
-  if (!template) throw new Error(`Missing chemical template ${group}_${carbons}.`);
+  if (!template) throw new Error(`Missing chemical template for ${GROUP_NAMES[group]}, C${carbons}.`);
   return template;
 }
 
@@ -57,7 +62,7 @@ function formulaFor(atoms, charge) {
  */
 export function buildPolymer(templates, {group, carbons, repeats}) {
   const template = getTemplate(templates, group, carbons);
-  if (!Number.isInteger(repeats) || repeats < 1 || repeats > 100) throw new RangeError('Repeat count must be an integer from 1 to 100.');
+  if (!Number.isInteger(repeats) || repeats < 1 || repeats > MAX_REPEATS) throw new RangeError(`Repeat count must be an integer from 1 to ${MAX_REPEATS}.`);
   const {atoms: source, bonds: sourceBonds, attachment} = template;
   const {head, tail, headCap, tailCap} = attachment;
   const indexByName = Object.fromEntries(source.map((a, i) => [a.name, i]));
@@ -198,7 +203,7 @@ export function buildPolymer(templates, {group, carbons, repeats}) {
   const charge = atoms.reduce((sum, a) => sum+a.charge, 0);
   return {atoms, bonds,
     stats: {atoms: atoms.length, bonds: bonds.length, formula: formulaFor(atoms, charge), charge, repeats},
-    metadata: {name: `${group}_${carbons}_DP${repeats}`, group, carbons, repeats,
+    metadata: {name: `${template.groupName} C${carbons} DP${repeats} CH3`, group, carbons, repeats,
       template: template.name, source: template.source, templateGeometry: template.geometry,
       connection: 'C4(i)-C1(i+1); C5 is retained as the pendent methyl group',
       removedHydrogens: 2*repeats, addedCapAtoms:8, addedCapBonds:8, endCaps,
@@ -256,7 +261,7 @@ export function toPDB(model) {
   return lines.join('\n')+'\n';
 }
 
-/** V3000 is used at every size: it supports >999 atoms and bonds at DP100. */
+/** V3000 is used at every size: it supports >999 atoms and bonds at DP30. */
 export function toSDF(model) {
   validateExport(model);
   const lines = [model.metadata?.name || 'Polymer', '  PolyProg          3D',

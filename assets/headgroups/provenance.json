@@ -1,0 +1,82 @@
+{
+  "primary-ammonium": {
+    "sourceTemplate": "PA_4",
+    "source": {
+      "pdb": {
+        "path": "data/source/PA_4.pdb",
+        "sha256": "a9bc17197a6ce42a5505a428b971e735598adae011bf0a5b5f57d3b2f668964d"
+      },
+      "mol2": {
+        "path": "data/source/PA_4.mol2",
+        "sha256": "738e67c67cd1ef7700b7958a95c607fb80c04d91e35a9ae10e2162e7dfb959bf"
+      }
+    },
+    "headgroupSmiles": "*[NH3+]",
+    "formalCharge": 1,
+    "formulaWithWildcard": "H3*N+",
+    "attachment": "R replaces C14, directly bonded to original N2",
+    "viewBox": "0 0 360 180",
+    "glyphs": "SVG paths; no text nodes or external fonts",
+    "rdkitVersion": "2026.09.1"
+  },
+  "quaternary-ammonium": {
+    "sourceTemplate": "QA_4",
+    "source": {
+      "pdb": {
+        "path": "data/source/QA_4.pdb",
+        "sha256": "bf872601941c2dc06a659faed0d4c124f74080f5e1801d63d0e7290dc304c77d"
+      },
+      "mol2": {
+        "path": "data/source/QA_4.mol2",
+        "sha256": "5e70202a87c5f34e01072cbb23dc4339c097b9ed036baff79abdc135a610210b"
+      }
+    },
+    "headgroupSmiles": "*[N+](C)(C)C",
+    "formalCharge": 1,
+    "formulaWithWildcard": "C3H9*N+",
+    "attachment": "R replaces C14, directly bonded to original N2",
+    "viewBox": "0 0 360 180",
+    "glyphs": "SVG paths; no text nodes or external fonts",
+    "rdkitVersion": "2026.09.1"
+  },
+  "guanidinium": {
+    "sourceTemplate": "GD_4",
+    "source": {
+      "pdb": {
+        "path": "data/source/GD_4.pdb",
+        "sha256": "75b80f76289b499db20fc97625be8c46260c912f9a9c10afcb5bf1c6104e7f13"
+      },
+      "mol2": {
+        "path": "data/source/GD_4.mol2",
+        "sha256": "79e13c4bab7dd66cd91bf983ac451e48b85c882f4d238fe7b43a00da9e0d5f8b"
+      }
+    },
+    "headgroupSmiles": "*NC(N)=[NH2+]",
+    "formalCharge": 1,
+    "formulaWithWildcard": "CH5*N3+",
+    "attachment": "R replaces C14, directly bonded to original N2",
+    "viewBox": "0 0 360 180",
+    "glyphs": "SVG paths; no text nodes or external fonts",
+    "rdkitVersion": "2026.09.1"
+  },
+  "imidazolium": {
+    "sourceTemplate": "IL_4",
+    "source": {
+      "pdb": {
+        "path": "data/source/IL_4.pdb",
+        "sha256": "a27a54fbd5c61f804531d0cdcc879b13da8cb9daac6e921d127e3a8cf9a12481"
+      },
+      "mol2": {
+        "path": "data/source/IL_4.mol2",
+        "sha256": "e8d8275adf7c25baa7e435064fc36cc8532cfb672e6e1873a3948227201f12f4"
+      }
+    },
+    "headgroupSmiles": "*[n+]1cc[nH]c1",
+    "formalCharge": 1,
+    "formulaWithWildcard": "C3H4*N2+",
+    "attachment": "R replaces C14, directly bonded to original N2",
+    "viewBox": "0 0 360 180",
+    "glyphs": "SVG paths; no text nodes or external fonts",
+    "rdkitVersion": "2026.09.1"
+  }
+}

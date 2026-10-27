@@ -2,7 +2,9 @@
 
 A local-first, English-language molecular workspace for assembling cationic polymers from 16 verified PDB/MOL2 building blocks.
 
-Choose **PA, QA, GD, or IL**, choose **4, 6, 8, or 10 alkyl carbons**, and connect **1–100 repeat units** with **CH3 caps at both ends**. The selected monomer's 2D structure is always shown above the interactive 3D polymer, so both structures can be inspected together. Download the polymer as PDB, SDF, or a JSON build recipe.
+Choose **primary ammonium, quaternary ammonium, guanidinium, or imidazolium**, choose **4, 6, 8, or 10 alkyl carbons**, and connect **1–30 repeat units** with **CH3 caps at both ends**. The selected monomer's 2D structure is always shown above the interactive 3D polymer, so both structures can be inspected together. Download the polymer as PDB, SDF, or a JSON build recipe.
+
+Headgroup selectors use fixed-aspect-ratio SVG images generated from the source structures. Every chemical glyph is an outlined path, preventing font substitution or wrapping from deforming the formulas. The R label indicates attachment to the side chain. The interface, shareable URLs, and download filenames use full chemical names; original source IDs remain unchanged for provenance. Older abbreviation-based URLs remain compatible, and repeat counts above 30 in saved URLs are clamped to 30.
 
 ## Run locally
 
@@ -20,12 +22,12 @@ Use the HTTP server rather than opening `index.html` directly: browser ES module
 
 ## Available chemistry
 
-| Family | Headgroup | Alkyl carbon options |
+| Headgroup | Terminal group | Alkyl carbon options |
 | --- | --- | --- |
-| PA | Primary ammonium, NH3+ | 4, 6, 8, 10 |
-| QA | Quaternary ammonium, N+(CH3)3 | 4, 6, 8, 10 |
-| GD | Guanidinium | 4, 6, 8, 10 |
-| IL | Imidazolium | 4, 6, 8, 10 |
+| Primary ammonium | NH3+ | 4, 6, 8, 10 |
+| Quaternary ammonium | N+(CH3)3 | 4, 6, 8, 10 |
+| Guanidinium | NH–C(=NH2+)–NH2 | 4, 6, 8, 10 |
+| Imidazolium | Cationic five-membered aromatic ring | 4, 6, 8, 10 |
 
 The carbon count is the **total number of carbons after the ester oxygen**: C4 means `O–(CH2)3–CH3`. Each building block has an ester-linked alkyl side chain and an amide-linked cationic side chain with a three-carbon spacer. Each repeat contributes one positive formal charge.
 
@@ -70,7 +72,7 @@ Changing a selection does not silently replace the built polymer. Click **Build 
 node --test tests/*.test.mjs
 ```
 
-Tests cover all 16 templates, polymer connectivity and formula, headgroup protonation, charge, exact end-cap handling, pendant methyl retention, alkyl lengths, ordinary covalent geometry, inter-unit bond lengths/angles, determinism, invalid inputs, source hashes, and fixed-column PDB / V3000 SDF exports. Large-chain cases include 100 repeat units. The GitHub workflow runs these checks on pushes and pull requests.
+Tests cover all 16 templates, polymer connectivity and formula, headgroup protonation, charge, exact end-cap handling, pendant methyl retention, alkyl lengths, ordinary covalent geometry, inter-unit bond lengths/angles, determinism, invalid inputs, source hashes, and fixed-column PDB / V3000 SDF exports. Boundary cases verify that 30 repeat units succeed and 31 are rejected. The GitHub workflow runs these checks on pushes and pull requests.
 
 ## Repository structure
 
@@ -84,7 +86,9 @@ src/viewer.js                 Dependency-free interactive 3D canvas viewer
 data/templates.json          Validated templates and provenance
 data/source/                  The 16 original PDB/MOL2 pairs
 assets/templates/             Source-derived 2D structure SVGs
+assets/headgroups/             Fixed-aspect headgroup structure images
 scripts/import-templates.py   Reproducible template preparation
+scripts/generate-headgroups.py Source-derived headgroup image generation
 tests/                        Chemical and export validation
 server.mjs                    Small local-only static HTTP server
 Start-Website.cmd             Windows launcher

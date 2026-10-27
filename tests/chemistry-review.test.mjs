@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { buildPolymer, getTemplate, toPDB, toSDF } from '../src/polymer.js';
+import { buildPolymer, getTemplate, toPDB, toSDF, MAX_REPEATS } from '../src/polymer.js';
 
 // Independent chemical expectations, counted from the source PDB CONECT records.
 const templates = JSON.parse(readFileSync(new URL('../data/templates.json', import.meta.url), 'utf8'));
@@ -264,9 +264,9 @@ for (const [group, expected] of Object.entries(families)) {
   }
 }
 
-test('Both physical methyl caps and exact composition survive DP100 for every template', () => {
+test(`Both physical methyl caps and exact composition survive DP${MAX_REPEATS} for every template`, () => {
   for (const [group, expected] of Object.entries(families)) for (const carbons of [4, 6, 8, 10]) {
-    const repeats = 100;
+    const repeats = MAX_REPEATS;
     const template = getTemplate(templates, group, carbons);
     const model = buildPolymer(templates, { group, carbons, repeats });
     const adjacency = graph(model);
