@@ -1,0 +1,23 @@
+name: Validate molecular builder
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  chemistry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/app.js
+          node --check src/viewer.js
+          node --check src/polymer.js
+          node --check src/builder-worker.js
+          node --check server.mjs
+      - name: Verify molecular graphs, geometry and exports
+        run: node --test tests/*.test.mjs

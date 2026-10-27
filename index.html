@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#174b3b">
+  <meta name="description" content="Build cationic polymers from 16 verified molecular templates. Choose a headgroup, alkyl chain length, and repeat count. Explore in 3D and export molecular structures.">
+  <title>Polymer Programming — Molecular workspace</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></symbol>
+    <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></symbol>
+    <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="icon-github" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 5v-4a3.5 3.5 0 0 0-1-3c3-.3 6-1.5 6-6a5 5 0 0 0-1.3-3.5A4.6 4.6 0 0 0 18.6 2S17.4 1.6 15 3a12 12 0 0 0-6 0C6.6 1.6 5.4 2 5.4 2a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 4.5 3 5.7 6 6a3.5 3.5 0 0 0-1 3v4"/></symbol>
+  </defs></svg>
+  <header class="site-header">
+    <a class="brand" href="#workspace" aria-label="Polymer Programming home"><img src="./assets/favicon.svg" width="36" height="36" alt=""><span>Polymer<span class="brand-light">Programming</span></span></a>
+    <nav aria-label="Main navigation"><a class="nav-active" href="#workspace">Workspace</a><a href="#library">Template library</a><button class="nav-button" id="guide-open">How it works <span aria-hidden="true">↗</span></button></nav>
+    <a class="github-link" href="https://github.com/1WaterMiu/PolymerProgramming" target="_blank" rel="noreferrer"><svg class="icon"><use href="#icon-github"/></svg><span>GitHub</span><span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main id="workspace">
+    <section class="workspace-heading" aria-labelledby="page-title">
+      <div><p class="eyebrow"><span class="green-dot"></span> YOUR MOLECULAR WORKSPACE</p><h1>Small building blocks.<br><em>Endless possibilities.</em></h1><p class="intro">Choose your chemistry. Build a chain. Explore it in three dimensions.</p></div>
+      <div class="heading-note"><span class="note-symbol">C<span>+</span></span><div><strong>16 verified templates</strong><span>4 headgroups · 4 alkyl chain lengths</span></div></div>
+    </section>
+
+    <div class="builder-layout">
+      <aside class="configuration-panel" aria-labelledby="configure-title">
+        <div class="panel-heading"><h2 id="configure-title">Configure your polymer</h2><span class="step-counter">01 — 03</span></div>
+        <form id="builder-form" novalidate>
+          <fieldset class="control-section"><legend><span class="step">01</span> Cationic headgroup</legend>
+            <div class="group-grid" id="group-options">
+              <button type="button" class="group-card selected" data-group="PA" aria-pressed="true"><span class="group-card-top"><span class="group-code">PA</span><span class="selection-check">✓</span></span><span class="group-formula">NH<sub>3</sub><sup>+</sup></span><span class="group-name">Primary ammonium</span></button>
+              <button type="button" class="group-card" data-group="QA" aria-pressed="false"><span class="group-card-top"><span class="group-code">QA</span><span class="selection-check">✓</span></span><span class="group-formula">N<sup>+</sup>(CH<sub>3</sub>)<sub>3</sub></span><span class="group-name">Quaternary ammonium</span></button>
+              <button type="button" class="group-card" data-group="GD" aria-pressed="false"><span class="group-card-top"><span class="group-code">GD</span><span class="selection-check">✓</span></span><span class="group-formula group-formula-small">NH–C(=NH<sub>2</sub><sup>+</sup>)–NH<sub>2</sub></span><span class="group-name">Guanidinium</span></button>
+              <button type="button" class="group-card" data-group="IL" aria-pressed="false"><span class="group-card-top"><span class="group-code">IL</span><span class="selection-check">✓</span></span><svg class="ring-icon" viewBox="0 0 90 35" aria-hidden="true"><path d="m30 6 22 1 9 16-18 10-19-13Zm2 4 17 1m6 12-13 6"/><text x="21" y="12">N</text><text x="55" y="27">N</text><text x="58" y="11">+</text></svg><span class="group-name">Imidazolium</span></button>
+            </div>
+          </fieldset>
+          <fieldset class="control-section"><legend><span class="step">02</span> Alkyl chain length</legend><div class="segmented carbon-options" id="carbon-options" role="group" aria-label="Total alkyl carbons"><button type="button" data-carbons="4" class="active" aria-pressed="true">4 <span>C</span></button><button type="button" data-carbons="6" aria-pressed="false">6 <span>C</span></button><button type="button" data-carbons="8" aria-pressed="false">8 <span>C</span></button><button type="button" data-carbons="10" aria-pressed="false">10 <span>C</span></button></div><p class="field-help">Total carbons, including the terminal CH<sub>3</sub>.</p></fieldset>
+          <fieldset class="control-section repeat-section"><legend><span class="step">03</span> Number of repeats</legend><div class="repeat-input-row"><div><label for="repeat-count">Degree of polymerization</label><span>1–100 repeat units</span></div><input id="repeat-count" name="repeats" type="number" min="1" max="100" step="1" value="12" required inputmode="numeric"></div><input id="repeat-slider" aria-label="Repeat count slider" type="range" min="1" max="100" value="12"><div class="range-labels"><span>1 unit</span><span>100 units</span></div></fieldset>
+          <p id="repeat-error" class="field-error" role="alert" hidden>Enter a whole number between 1 and 100.</p>
+          <div class="configuration-summary"><span>Selected building block</span><strong id="selected-template">PA · C4</strong></div>
+          <button class="build-button" type="submit" id="build-button" disabled><span id="build-button-label">Loading templates…</span><svg class="icon"><use href="#icon-arrow"/></svg></button>
+          <p class="local-note"><span class="mini-lock" aria-hidden="true">◇</span> Built in your browser. Your structures stay local.</p>
+        </form>
+      </aside>
+
+      <section class="results-panel" aria-label="Molecular structure preview">
+        <div class="viewer-card" id="viewer-card">
+          <header class="viewer-heading"><div><div class="viewer-kicker">STRUCTURE PREVIEW</div><h2 id="model-title">PA–C4 <span>/ 12 repeats</span></h2></div><span class="model-status" id="model-status" role="status"><span class="green-dot"></span> Loading</span></header>
+          <div class="viewer-toolbar"><div class="view-tabs" role="tablist" aria-label="Preview type"><button type="button" id="tab-3d" role="tab" aria-selected="true" aria-controls="structure-3d" class="active">3D polymer</button><button type="button" id="tab-2d" role="tab" aria-selected="false" aria-controls="structure-2d" tabindex="-1">Repeat unit</button></div><div class="viewer-actions"><button id="rotate-toggle" class="text-icon-button" aria-pressed="false" title="Toggle automatic rotation"><span class="rotate-symbol" aria-hidden="true">↻</span><span>Rotate</span></button><button id="reset-view" class="icon-button" aria-label="Reset view" title="Reset view"><svg class="icon"><use href="#icon-reset"/></svg></button><button id="fullscreen" class="icon-button" aria-label="Expand structure preview" title="Expand preview"><svg class="icon"><use href="#icon-expand"/></svg></button></div></div>
+          <div class="molecule-stage" id="molecule-stage">
+            <div id="structure-3d" class="structure-view" role="tabpanel" aria-labelledby="tab-3d"><canvas id="molecule-canvas" tabindex="0" aria-label="Interactive three-dimensional polymer. Drag to rotate, scroll to zoom, or Shift-drag to pan.">Your browser needs Canvas support to display the structure. You can still export the generated PDB.</canvas><div class="stage-caption"><span class="axis-glyph" aria-hidden="true"><i>x</i><b>y</b><em>z</em></span><span>Drag to rotate <span class="caption-dot">·</span> Scroll to zoom</span></div></div>
+            <div id="structure-2d" class="structure-view" role="tabpanel" aria-labelledby="tab-2d" hidden><img id="template-image" alt="Chemical structure of the selected capped repeat unit"><p class="template-caption" id="template-caption">Hydrogen-capped repeat unit · PA_4</p></div>
+            <div class="stage-loading" id="stage-loading"><span class="loader"></span><p>Preparing your molecular workspace</p></div>
+            <div class="stage-error" id="stage-error" hidden role="alert"></div>
+            <span class="structure-watermark" aria-hidden="true">PP / MOLECULAR LAB</span>
+          </div>
+          <div class="viewer-bottom"><div class="element-legend" aria-label="Atom colors"><span><i class="atom-carbon"></i>Carbon</span><span><i class="atom-nitrogen"></i>Nitrogen</span><span><i class="atom-oxygen"></i>Oxygen</span><span><i class="atom-hydrogen"></i>Hydrogen</span></div><div class="render-controls"><label class="hydrogen-toggle"><input id="show-hydrogens" type="checkbox"><span class="toggle-track"></span><span>Show H</span></label><select id="render-style" aria-label="Rendering style"><option value="ball-stick">Ball & stick</option><option value="wireframe">Wireframe</option></select></div></div>
+        </div>
+
+        <div class="metrics-grid" aria-label="Generated polymer properties"><div class="metric"><span>REPEAT UNITS</span><strong id="stat-repeats">—</strong><small>Connected building blocks</small></div><div class="metric"><span>TOTAL ATOMS</span><strong id="stat-atoms">—</strong><small>Including hydrogens</small></div><div class="metric"><span>COVALENT BONDS</span><strong id="stat-bonds">—</strong><small>Explicit connectivity</small></div><div class="metric"><span>NET CHARGE</span><strong id="stat-charge">—</strong><small>Formal charge, e</small></div></div>
+
+        <div class="export-card"><div class="export-copy"><span class="eyebrow">YOUR NEXT EXPERIMENT STARTS HERE</span><h3>Take your structure with you.</h3><p id="formula-display">Generate a polymer to explore its composition.</p></div><div class="export-actions"><button id="download-pdb" class="primary-button" disabled><svg class="icon"><use href="#icon-download"/></svg> Download PDB</button><div class="secondary-exports"><button id="download-sdf" disabled>SDF structure <span aria-hidden="true">↓</span></button><span>·</span><button id="download-recipe" disabled>Build recipe <span aria-hidden="true">↓</span></button></div></div></div>
+        <p class="structure-note"><svg class="icon"><use href="#icon-info"/></svg><span>Initial assembled geometry. Energy minimization and a polymer-specific force field are needed before molecular dynamics.</span></p>
+      </section>
+    </div>
+
+    <section id="library" class="library-section" aria-labelledby="library-title"><div class="library-heading"><div><p class="eyebrow">BUILT ON YOUR CHEMISTRY</p><h2 id="library-title">The building-block library</h2><p>Sixteen source structures. A shared backbone. Four ways to make it your own.</p></div><span class="library-count">16 TEMPLATES <span>↗</span></span></div><div class="library-grid" id="library-grid"></div><div class="library-footnote"><svg class="icon"><use href="#icon-check"/></svg><span>Connectivity checked against the original PDB files. Bond orders retained from the matching MOL2 files.</span><a id="source-pdb-link" href="./data/source/PA_4.pdb" download>Original PA_4 PDB ↗</a></div></section>
+  </main>
+
+  <footer class="site-footer"><a class="footer-brand" href="#workspace">Polymer Programming<span>A workspace for molecular possibilities.</span></a><span>Local-first. Browser-based. Built for exploration.</span><a href="https://github.com/1WaterMiu/PolymerProgramming" target="_blank" rel="noreferrer">View the project <span aria-hidden="true">↗</span></a></footer>
+
+  <dialog id="guide-dialog" aria-labelledby="guide-title"><button class="dialog-close" id="guide-close" aria-label="Close guide">×</button><p class="eyebrow">FROM TEMPLATE TO POLYMER</p><h2 id="guide-title">A little chemistry.<br>A lot of possibility.</h2><ol class="guide-steps"><li><strong>Choose your headgroup</strong><p>PA: primary ammonium. QA: quaternary ammonium. GD: guanidinium. IL: imidazolium. Each repeat unit carries one positive formal charge.</p></li><li><strong>Set the alkyl chain length</strong><p>Choose 4, 6, 8, or 10 total carbons after the ester oxygen. A C4 chain contains three CH₂ groups and one terminal CH₃.</p></li><li><strong>Choose a repeat count and build</strong><p>The builder connects C4 of each unit to C1 of the next. One capping hydrogen is removed from each connection endpoint; the C5 methyl substituent stays in place. The two outer chain ends remain hydrogen-capped.</p></li><li><strong>Explore and export</strong><p>Drag to rotate and scroll to zoom. PDB includes all atoms and connectivity. SDF preserves explicit bond orders. The JSON recipe records your settings and source provenance.</p></li></ol><div class="guide-note"><strong>What the model represents</strong><p>An initial, unminimized single polymer chain assembled from the supplied templates. The model contains no counterions or solvent. Tacticity is not controlled. Source monomer force-field parameters are not exported as a ready-to-run polymer topology.</p></div><button class="primary-button" id="guide-done">Start building <svg class="icon"><use href="#icon-arrow"/></svg></button></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

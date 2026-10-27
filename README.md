@@ -1,0 +1,89 @@
+# Polymer Programming
+
+A local-first, English-language molecular workspace for assembling cationic polymers from 16 verified PDB/MOL2 building blocks.
+
+Choose **PA, QA, GD, or IL**, choose **4, 6, 8, or 10 alkyl carbons**, and connect **1–100 repeat units**. Inspect the resulting molecular structure in an interactive 3D viewer, inspect the capped repeat unit in 2D, and download PDB, SDF, or a JSON build recipe.
+
+## Run locally
+
+On Windows, double-click **`Start-Website.cmd`**. The launcher finds Node.js on PATH or the existing Codex Node runtime, starts the local server, and opens your browser. Keep its terminal window open while using the website. Press Enter in that window to stop the server. If this website is already running on port 4173, the launcher simply opens it.
+
+Alternatively, with Node.js 20 or newer:
+
+```sh
+node server.mjs
+```
+
+Open **http://127.0.0.1:4173**. No package installation, API key, account, internet connection, Python, or WSL is needed to run the website. The server binds only to the local loopback address. Set the `PORT` environment variable to use a different port.
+
+Use the HTTP server rather than opening `index.html` directly: browser ES modules, template fetching, and the background builder require HTTP. All model generation happens inside the browser. Generated structures are not uploaded.
+
+## Available chemistry
+
+| Family | Headgroup | Alkyl carbon options |
+| --- | --- | --- |
+| PA | Primary ammonium, NH3+ | 4, 6, 8, 10 |
+| QA | Quaternary ammonium, N+(CH3)3 | 4, 6, 8, 10 |
+| GD | Guanidinium | 4, 6, 8, 10 |
+| IL | Imidazolium | 4, 6, 8, 10 |
+
+The carbon count is the **total number of carbons after the ester oxygen**: C4 means `O–(CH2)3–CH3`. Each building block has an ester-linked alkyl side chain and an amide-linked cationic side chain with a three-carbon spacer. Each repeat contributes one positive formal charge.
+
+The current builder produces a **single linear chain made from one selected template**. Mixed sequences, multiple chains, crosslinks, counterions, solvent, tacticity controls, and molecular dynamics topology generation are not implemented.
+
+## How assembly works
+
+The original PDB files define atom identities, hydrogens, formal charges, and connectivity. Matching MOL2 files supply bond orders. Their atom identities and complete bond graphs are checked against one another during template import. The original files are copied unchanged to `data/source/`; SHA-256 hashes are recorded in `data/templates.json`.
+
+The supplied coordinates are molecular sketches. The importer regenerates 3D conformers with RDKit ETKDG, relaxes individual templates using UFF, and rejects templates with abnormal bond lengths or saturated-carbon angles. This preprocessing is already done and the validated coordinates are included in the repository.
+
+For each successive repeat, the browser builder:
+
+1. Removes the designated cap hydrogen on C4 of the previous unit and on C1 of the new unit.
+2. Preserves the C5 pendant methyl and every headgroup, alkyl side chain, and other atom.
+3. Rigidly places the new template using the cap-bond directions and adds a 1.53 Å C4–C1 bond.
+4. Searches candidate torsions around the new bond to reduce close contacts and favor an extended starting chain.
+
+The two outer termini remain hydrogen-capped. For a source template with `A` atoms and `B` bonds, a chain of `n` units contains `n*A − 2*(n−1)` atoms, `n*B − (n−1)` bonds, and formal charge `+n`.
+
+**These are initial assembled coordinates, not energy-minimized polymer conformations.** A valid molecule graph does not establish an equilibrium conformation or a simulation-ready force field. Tacticity is not controlled, no counterions or solvent are added, and source monomer partial charges/parameters are not reused as a polymer topology. Minimize and parameterize the final chain before molecular dynamics.
+
+## Viewer and exports
+
+- Drag to rotate; Shift-drag or right-drag to pan; scroll or pinch to zoom.
+- Use the hydrogen toggle, ball-and-stick/wireframe selector, automatic rotation, reset, and expanded view.
+- Keyboard: arrow keys rotate, `+`/`-` zoom, and `0` resets the focused viewer.
+- The Repeat unit tab displays the selected hydrogen-capped chemical structure.
+- **PDB** exports all atoms, coordinates in angstroms, residue identities, formal charge fields, and CONECT records. Repeated CONECT targets encode multiple bonds using the convention supported by RDKit and other molecular tools; SDF provides an explicit bond-order format.
+- **SDF V3000** preserves explicit bond orders and supports models with more than 999 atoms.
+- **JSON recipe** records settings, counts, assembly notes, and source provenance. It is a record of the build; importing recipes is not currently supported.
+
+Changing a selection does not silently replace the built polymer. Click **Build polymer** to apply changes. Downloads always correspond to the last successfully built polymer, and the preview status indicates pending changes. The URL records the last successful configuration for easy reopening.
+
+## Validate
+
+```sh
+node --test tests/*.test.mjs
+```
+
+Tests cover all 16 templates, polymer connectivity and formula, headgroup protonation, charge, exact end-cap handling, pendant methyl retention, alkyl lengths, ordinary covalent geometry, inter-unit bond lengths/angles, determinism, invalid inputs, source hashes, and fixed-column PDB / V3000 SDF exports. Large-chain cases include 100 repeat units. The GitHub workflow runs these checks on pushes and pull requests.
+
+## Repository structure
+
+```text
+index.html                    English user interface
+styles.css                    Responsive workspace styling
+src/app.js                    Configuration, UI state, and downloads
+src/builder-worker.js         Background molecular assembly
+src/polymer.js                Molecular graph assembly and export
+src/viewer.js                 Dependency-free interactive 3D canvas viewer
+data/templates.json          Validated templates and provenance
+data/source/                  The 16 original PDB/MOL2 pairs
+assets/templates/             Source-derived 2D structure SVGs
+scripts/import-templates.py   Reproducible template preparation
+tests/                        Chemical and export validation
+server.mjs                    Small local-only static HTTP server
+Start-Website.cmd             Windows launcher
+```
+
+The static site can also be served under a repository subpath, such as a GitHub Pages project site. All application asset URLs are relative. No hosted deployment is required for local use.
