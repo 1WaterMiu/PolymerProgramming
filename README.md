@@ -8,7 +8,7 @@ Headgroup selectors use fixed-aspect-ratio SVG images generated from the source 
 
 ## Run locally
 
-On Windows, double-click **`Start-Website.cmd`**. The launcher finds Node.js on PATH or the existing Codex Node runtime, starts the local server, and opens your browser. Keep its terminal window open while using the website. Press Enter in that window to stop the server. If this website is already running on port 4173, the launcher simply opens it.
+On Windows, double-click **`Start-Website.cmd`**. The launcher finds Node.js on PATH or the existing Codex Node runtime, starts the local server, and opens your browser. The server keeps running in the background after the launcher closes. Double-click **`Stop-Website.cmd`** to stop it. If this website is already running on port 4173, the launcher simply opens it. After restarting Windows, run the launcher again.
 
 Alternatively, with Node.js 20 or newer:
 

@@ -1,3 +1,4 @@
+param([switch]$NoBrowser)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 $runtimeCommand = Get-Command node -ErrorAction SilentlyContinue
@@ -10,7 +11,7 @@ if (-not (Test-Path -LiteralPath $runtimePath)) {
 $siteAddress = 'http://127.0.0.1:4173'
 try { $runningSite = Invoke-WebRequest -Uri $siteAddress -TimeoutSec 2 -UseBasicParsing } catch { $runningSite = $null }
 if ($runningSite -and $runningSite.Content -match 'Polymer Programming') {
-    Start-Process $siteAddress
+    if (-not $NoBrowser) { Start-Process $siteAddress }
     exit
 }
 Write-Host "Starting Polymer Programming at $siteAddress"
@@ -21,7 +22,8 @@ if ($runningSite) {
 }
 $logDirectory = Join-Path $PSScriptRoot '.preview'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-$siteProcess = Start-Process -FilePath $runtimePath -ArgumentList 'server.mjs' -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDirectory 'server.log') -RedirectStandardError (Join-Path $logDirectory 'server.error.log')
+$serverPath = Join-Path $PSScriptRoot 'server.mjs'
+$siteProcess = Start-Process -FilePath $runtimePath -ArgumentList ('"' + $serverPath + '"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDirectory 'server.log') -RedirectStandardError (Join-Path $logDirectory 'server.error.log')
 try {
     $siteReady = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
@@ -32,9 +34,11 @@ try {
         } catch { Start-Sleep -Milliseconds 150 }
     }
     if (-not $siteReady) { throw 'The local server did not become ready.' }
-    Start-Process $siteAddress
-    Write-Host 'Your website is ready. Keep this window open while using it.'
-    Read-Host 'Press Enter to stop the server and close this window'
-} finally {
+    $siteProcess.Id | Set-Content -LiteralPath (Join-Path $logDirectory 'server.pid')
+    if (-not $NoBrowser) { Start-Process $siteAddress }
+    Write-Host 'Your website is ready. The local server keeps running after this window closes.'
+    Write-Host 'Run Stop-Website.cmd when you want to stop it.'
+} catch {
     if (-not $siteProcess.HasExited) { Stop-Process -Id $siteProcess.Id -ErrorAction SilentlyContinue }
+    throw
 }

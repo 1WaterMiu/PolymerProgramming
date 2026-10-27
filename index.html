@@ -8,7 +8,23 @@
   <title>Polymer Programming — Molecular workspace</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
-  <script type="module" src="./src/app.js"></script>
+  <script>
+    // Keep startup diagnostics independent of the module graph and network.
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        if (location.protocol === 'file:') throw new Error('This page was opened as a file.');
+        await import('./src/app.js');
+      } catch (error) {
+        document.getElementById('stage-loading').hidden = true;
+        const notice = document.getElementById('stage-error');
+        notice.hidden = false;
+        notice.textContent = 'The workspace could not start. Run Start-Website.cmd in the project folder, then open http://127.0.0.1:4173 and reload this page. ' + error.message;
+        document.getElementById('model-status').textContent = 'Unable to load';
+        document.getElementById('build-button').disabled = true;
+        document.getElementById('build-button-label').textContent = 'Workspace unavailable';
+      }
+    });
+  </script>
 </head>
 <body>
   <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -56,7 +72,7 @@
       <section class="results-panel" aria-label="Molecular structure preview">
         <section id="structure-2d" class="monomer-card" aria-labelledby="monomer-title">
           <div class="monomer-copy"><p class="viewer-kicker">MONOMER STRUCTURE</p><h2 id="monomer-title">Primary ammonium</h2><p id="monomer-name">C4 alkyl side chain</p><p class="template-caption" id="template-caption">Original H-capped reference</p><a id="monomer-source-link" href="./data/source/PA_4.pdb" download="primary-ammonium_C4_source.pdb">Source PDB <span aria-hidden="true">↓</span></a></div>
-          <a class="monomer-diagram" id="monomer-image-link" href="./assets/templates/PA_4.svg" target="_blank" rel="noreferrer" aria-label="Open larger monomer structure"><img id="template-image" alt="Chemical structure of the selected source monomer"><span class="diagram-hint">Enlarge ↗</span></a>
+          <a class="monomer-diagram" id="monomer-image-link" href="./assets/templates/PA_4.svg" target="_blank" rel="noreferrer" aria-label="Open larger monomer structure"><img id="template-image" src="./assets/templates/PA_4.svg" alt="Chemical structure of the selected source monomer"><span class="diagram-hint">Enlarge ↗</span></a>
         </section>
         <div class="viewer-card" id="viewer-card">
           <header class="viewer-heading"><div><div class="viewer-kicker">STRUCTURE PREVIEW</div><h2 id="model-title">Primary ammonium <span>C4 · 12 repeats</span></h2></div><span class="model-status" id="model-status" role="status"><span class="green-dot"></span> Loading</span></header>
