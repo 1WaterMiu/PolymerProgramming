@@ -14,7 +14,7 @@ const state = {
   group: Object.hasOwn(groups, search.get('group')) ? search.get('group') : 'PA',
   carbons: lengths.includes(Number(search.get('carbons'))) ? Number(search.get('carbons')) : 4,
   repeats: /^\d+$/.test(search.get('repeats') || '') && Number(search.get('repeats')) >= 1 && Number(search.get('repeats')) <= 100 ? Number(search.get('repeats')) : 12,
-  tab: '3d', templates: null, model: null, builtConfig: null, busy: false, error: null,
+  templates: null, model: null, builtConfig: null, busy: false, error: null,
 };
 let viewer, worker, job = 0, toastTimer;
 const pending = new Map();
@@ -37,10 +37,10 @@ function setStatus(message, dirty = false) {
 }
 
 function updateTitle() {
-  const current = state.tab === '2d' ? config() : state.builtConfig || config();
+  const current = state.builtConfig || config();
   $('model-title').replaceChildren(document.createTextNode(`${current.group}–C${current.carbons}`));
   const detail = document.createElement('span');
-  detail.textContent = state.tab === '2d' ? '/ capped repeat unit' : `/ ${current.repeats} ${current.repeats === 1 ? 'repeat' : 'repeats'}`;
+  detail.textContent = `/ ${current.repeats} ${current.repeats === 1 ? 'repeat' : 'repeats'}`;
   $('model-title').append(detail);
 }
 
@@ -61,8 +61,12 @@ function updateSelection() {
   $('selected-template').textContent = `${state.group} · C${state.carbons}`;
   const imagePath = `./assets/templates/${key()}.svg`;
   if ($('template-image').getAttribute('src') !== imagePath) $('template-image').src = imagePath;
-  $('template-image').alt = `${groups[state.group].name}, C${state.carbons}: hydrogen-capped repeat-unit chemical structure`;
-  $('template-caption').textContent = `Hydrogen-capped repeat unit · ${key()}`;
+  $('template-image').alt = `${groups[state.group].name}, C${state.carbons}: original hydrogen-capped monomer reference`;
+  $('template-caption').textContent = `Original H-capped reference · ${key()}`;
+  $('monomer-title').textContent = `${state.group}–C${state.carbons}`;
+  $('monomer-name').textContent = groups[state.group].name;
+  $('monomer-image-link').href = imagePath;
+  $('monomer-source-link').href = `./data/source/${key()}.pdb`;
   $('source-pdb-link').href = `./data/source/${key()}.pdb`;
   $('source-pdb-link').textContent = `Original ${key()} PDB ↗`;
   const dirty = state.builtConfig && JSON.stringify(config()) !== JSON.stringify(state.builtConfig);
@@ -71,20 +75,6 @@ function updateSelection() {
     else if (dirty) setStatus('Build to apply changes', true);
     else if (state.model) setStatus('Ready');
   }
-  updateTitle();
-}
-
-function setTab(tab) {
-  state.tab = tab;
-  for (const value of ['3d', '2d']) {
-    const active = value === tab;
-    $(`tab-${value}`).setAttribute('aria-selected', active);
-    $(`tab-${value}`).tabIndex = active ? 0 : -1;
-    $(`tab-${value}`).classList.toggle('active', active);
-    $(`structure-${value}`).hidden = !active;
-  }
-  ['rotate-toggle', 'reset-view', 'fullscreen', 'show-hydrogens', 'render-style'].forEach(id => { $(id).disabled = tab !== '3d'; });
-  if (tab === '3d') viewer?.resize();
   updateTitle();
 }
 
@@ -98,7 +88,7 @@ function fillLibrary() {
       button.textContent = `C${carbons}`; button.dataset.template = `${group}_${carbons}`;
       button.setAttribute('aria-label', `Select ${info.name}, ${carbons} alkyl carbons`);
       button.addEventListener('click', () => {
-        state.group = group; state.carbons = carbons; updateSelection(); setTab('2d');
+        state.group = group; state.carbons = carbons; updateSelection();
         $('workspace').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
         notify(`${group}–C${carbons} selected. Build to update the polymer.`);
       });
@@ -152,7 +142,7 @@ async function generate() {
     const address = new URL(location.href);
     for (const [name, value] of Object.entries(requested)) address.searchParams.set(name, value);
     history.replaceState(null, '', address);
-    setTab('3d');
+    viewer?.resize();
     setStatus('Ready');
   } catch (error) {
     state.error = error.message;
@@ -170,7 +160,7 @@ async function generate() {
 function download(content, extension, mime) {
   if (!state.model) return;
   const built = state.builtConfig;
-  const filename = `${built.group}_C${built.carbons}_DP${built.repeats}.${extension}`;
+  const filename = `${built.group}_C${built.carbons}_DP${built.repeats}_CH3.${extension}`;
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
   const link = document.createElement('a'); link.href = url; link.download = filename;
   document.body.append(link); link.click(); link.remove();
@@ -200,15 +190,6 @@ $('repeat-count').addEventListener('input', () => {
 $('repeat-slider').addEventListener('input', () => {
   state.repeats = Number($('repeat-slider').value); $('repeat-count').value = state.repeats; $('repeat-error').hidden = true; $('repeat-count').removeAttribute('aria-invalid'); $('repeat-count').removeAttribute('aria-describedby'); updateSelection();
 });
-for (const tab of ['3d', '2d']) {
-  $(`tab-${tab}`).addEventListener('click', () => setTab(tab));
-  $(`tab-${tab}`).addEventListener('keydown', event => {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-      event.preventDefault(); const target = event.key === 'Home' ? '3d' : event.key === 'End' ? '2d' : tab === '3d' ? '2d' : '3d';
-      setTab(target); $(`tab-${target}`).focus();
-    }
-  });
-}
 $('show-hydrogens').addEventListener('change', () => viewer?.setOptions({ showHydrogens: $('show-hydrogens').checked }));
 $('render-style').addEventListener('change', () => viewer?.setOptions({ style: $('render-style').value }));
 $('rotate-toggle').addEventListener('click', () => {
@@ -232,11 +213,11 @@ $('guide-dialog').addEventListener('click', event => { if (event.target === $('g
 $('download-pdb').addEventListener('click', () => exportSafely('pdb', 'chemical/x-pdb', toPDB));
 $('download-sdf').addEventListener('click', () => exportSafely('sdf', 'chemical/x-mdl-sdfile', toSDF));
 $('download-recipe').addEventListener('click', () => exportSafely('json', 'application/json', model => JSON.stringify({
-  application: 'Polymer Programming', version: '1.0.0', settings: state.builtConfig,
+  application: 'Polymer Programming', version: '1.1.0', settings: { ...state.builtConfig, endCaps: 'CH3' },
   template: `${state.builtConfig.group}_${state.builtConfig.carbons}`,
   stats: model.stats, metadata: model.metadata,
   source: state.templates[`${state.builtConfig.group}_${state.builtConfig.carbons}`].source,
-  assembly: 'C4 of repeat i is bonded to C1 of repeat i+1. One cap hydrogen is removed at each endpoint of every new bond. Outer termini remain hydrogen-capped.',
+  assembly: 'C4 of repeat i is bonded to C1 of repeat i+1. Both outer cap hydrogens are replaced by new neutral CH3 groups, bonded to the first C1 and last C4. The original C5 pendant methyl is retained.',
   geometry: 'Initial assembled coordinates; no whole-polymer energy minimization. No counterions or solvent. Tacticity is not controlled.',
   createdAt: new Date().toISOString(),
 }, null, 2) + '\n'));

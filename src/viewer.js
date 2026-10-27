@@ -22,6 +22,23 @@ const normalize = (v) => {
 };
 const elementStyle = (element) => ELEMENTS[element] || ELEMENTS.C;
 
+function segmentIntersectsBox(a, b, box) {
+  let lower = 0, upper = 1;
+  for (const [axis, minimum, maximum] of [['x', box.x, box.x + box.width], ['y', box.y, box.y + box.height]]) {
+    const delta = b[axis] - a[axis];
+    if (Math.abs(delta) < 1e-9) {
+      if (a[axis] < minimum || a[axis] > maximum) return false;
+    } else {
+      const first = (minimum - a[axis]) / delta;
+      const last = (maximum - a[axis]) / delta;
+      lower = Math.max(lower, Math.min(first, last));
+      upper = Math.min(upper, Math.max(first, last));
+      if (lower > upper) return false;
+    }
+  }
+  return true;
+}
+
 function principalFrame(points) {
   // Orient the longest dimension horizontally without changing the model.
   const center = [0, 0, 0];
@@ -60,6 +77,7 @@ export class MoleculeViewer {
     this.model = null;
     this.points = [];
     this.projected = [];
+    this.endCapIndices = [];
     this.sprites = new Map();
     this.pointers = new Map();
     this.listeners = [];
@@ -128,6 +146,7 @@ export class MoleculeViewer {
       }
     }
     this.model = model;
+    this.endCapIndices = model.atoms.flatMap((atom, index) => atom.role === 'endCap' && atom.element === 'C' ? [index] : []);
     this.points = model.atoms.length ? principalFrame(model.atoms.map(({ x, y, z }) => [x, y, z])) : [];
     this.radius = Math.max(1, ...this.points.map((point) => Math.hypot(...point)));
     this.selected = -1;
@@ -293,7 +312,75 @@ export class MoleculeViewer {
         }
       }
     }
+    this.drawEndCapLabels();
     if (this.selected >= 0 && this.projected[this.selected]?.visible) this.drawSelectedLabel();
+  }
+
+  drawEndCapLabels() {
+    if (!this.endCapIndices.length) return;
+    const context = this.context;
+    const label = 'CH₃';
+    context.font = '500 10px system-ui, sans-serif';
+    const width = context.measureText(label).width + 12;
+    const height = 18;
+    const boxes = [];
+    const angles = [0, -Math.PI / 4, Math.PI / 4, -Math.PI / 2, Math.PI / 2, Math.PI];
+    for (const index of this.endCapIndices) {
+      const point = this.projected[index];
+      if (!point?.visible || index === this.selected || point.x < 0 || point.y < 0 || point.x > this.width || point.y > this.height) continue;
+      const bond = this.model.bonds.find((entry) => (entry.a === index && this.model.atoms[entry.b].element !== 'H') || (entry.b === index && this.model.atoms[entry.a].element !== 'H'));
+      const neighbor = bond ? this.projected[bond.a === index ? bond.b : bond.a] : null;
+      // Prefer the space beyond the terminal bond, then try nearby directions.
+      const direction = neighbor && Math.hypot(point.x - neighbor.x, point.y - neighbor.y) > 1
+        ? Math.atan2(point.y - neighbor.y, point.x - neighbor.x)
+        : Math.atan2(point.y - this.height / 2, point.x - this.width / 2);
+      let chosen;
+      for (const distance of [point.radius + 24, point.radius + 38, point.radius + 52]) {
+        for (const angle of angles) {
+          const x = point.x + Math.cos(direction + angle) * distance - width / 2;
+          const y = point.y + Math.sin(direction + angle) * distance - height / 2;
+          const box = { x, y, width, height };
+          if (x < 6 || y < 6 || x + width > this.width - 6 || y + height > this.height - 6) continue;
+          if (boxes.some((other) => x < other.x + other.width + 4 && x + width + 4 > other.x && y < other.y + other.height + 4 && y + height + 4 > other.y)) continue;
+          const occupied = this.projected.some((atom) => {
+            if (!atom.visible) return false;
+            const radius = this.options.style === 'wireframe' ? 3 : atom.radius;
+            return Math.hypot(atom.x - clamp(atom.x, x, x + width), atom.y - clamp(atom.y, y, y + height)) < radius + 3;
+          });
+          if (occupied) continue;
+          if (this.model.bonds.some((entry) => {
+            const a = this.projected[entry.a], b = this.projected[entry.b];
+            return a.visible && b.visible && segmentIntersectsBox(a, b, box);
+          })) continue;
+          chosen = box;
+          break;
+        }
+        if (chosen) break;
+      }
+      // Dense or strongly overlapping projections remain uncluttered.
+      if (!chosen) continue;
+      boxes.push(chosen);
+      const centerX = chosen.x + width / 2, centerY = chosen.y + height / 2;
+      const distance = Math.hypot(centerX - point.x, centerY - point.y);
+      const dx = (centerX - point.x) / distance, dy = (centerY - point.y) / distance;
+      const inset = Math.min(Math.abs(width / (2 * dx)), Math.abs(height / (2 * dy)));
+      const radius = this.options.style === 'wireframe' ? 3 : point.radius;
+      context.strokeStyle = 'rgba(105, 132, 110, 0.48)';
+      context.lineWidth = 0.8;
+      context.beginPath();
+      context.moveTo(point.x + dx * (radius + 3), point.y + dy * (radius + 3));
+      context.lineTo(centerX - dx * (inset + 2), centerY - dy * (inset + 2));
+      context.stroke();
+      context.fillStyle = 'rgba(250, 253, 247, 0.94)';
+      context.beginPath();
+      if (context.roundRect) context.roundRect(chosen.x, chosen.y, width, height, 4);
+      else context.rect(chosen.x, chosen.y, width, height);
+      context.fill();
+      context.fillStyle = '#69836b';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(label, centerX, centerY + 0.5);
+    }
   }
 
   drawBond(bond, scale, wireframe) {
@@ -332,7 +419,9 @@ export class MoleculeViewer {
     const context = this.context;
     const atom = this.model.atoms[this.selected];
     const point = this.projected[this.selected];
-    const label = `${atom.name || atom.element} · Unit ${atom.residue || 1}${atom.charge ? ` · ${atom.charge > 0 ? '+' : ''}${atom.charge}` : ''}`;
+    const label = atom.role === 'endCap' && atom.element === 'C'
+      ? `CH₃ ${atom.endCap === 'tail' ? 'tail' : 'head'} cap · ${atom.name || atom.element}`
+      : `${atom.name || atom.element} · Unit ${atom.residue || 1}${atom.charge ? ` · ${atom.charge > 0 ? '+' : ''}${atom.charge}` : ''}`;
     context.font = '500 11px system-ui, sans-serif';
     const width = context.measureText(label).width + 20;
     const x = clamp(point.x - width / 2, 10, Math.max(10, this.width - width - 10));

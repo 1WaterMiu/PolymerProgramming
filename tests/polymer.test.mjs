@@ -65,9 +65,12 @@ for (const template of Object.values(templates)) for (const repeats of [1,2,12,1
   test(`${template.name} DP${repeats}: PDB and V3000 graph/charge/coordinate roundtrips`,()=>{
     const model=buildPolymer(templates,{group:template.group,carbons:template.carbons,repeats});
     const pdb=parsePDB(toPDB(model)),sdf=parseV3000(toSDF(model));
-    assert.equal(model.atoms.length,template.atoms.length*repeats-2*(repeats-1));
-    assert.equal(model.bonds.length,template.bonds.length*repeats-(repeats-1));
+    assert.equal(model.atoms.length,template.atoms.length*repeats-2*repeats+8);
+    assert.equal(model.bonds.length,template.bonds.length*repeats-repeats+7);
+    assert.equal(model.metadata.removedHydrogens,2*repeats);
+    assert.equal(model.metadata.addedCapAtoms,8);
     assert.equal(pdb.atoms.length,model.atoms.length);
+    assert.deepEqual(pdb.atoms.map(a=>a.residue),pdb.atoms.map(a=>a.residue).sort((a,b)=>a-b));
     assert.deepEqual(pdb.edges,new Set(model.bonds.map(b=>edge(b.a,b.b))));
     assert.deepEqual(pdb.bondOrders,new Map(model.bonds.map(b=>[edge(b.a,b.b),b.order])));
     assert.deepEqual(sdf.bonds,model.bonds);
@@ -86,6 +89,44 @@ test('builds are deterministic and do not mutate the templates',()=>{
   const options={group:'GD',carbons:10,repeats:4};
   assert.deepEqual(buildPolymer(templates,options),buildPolymer(templates,options));
   assert.equal(JSON.stringify(templates),before);
+});
+
+test('both main-chain endpoints have new neutral methyl caps, including DP1',()=>{
+  for (const template of Object.values(templates)) for (const repeats of [1,2,12,100]) {
+    const model=buildPolymer(templates,{group:template.group,carbons:template.carbons,repeats});
+    const neighbors=model.atoms.map(()=>[]);
+    for (const {a,b} of model.bonds) {neighbors[a].push(b);neighbors[b].push(a);}
+    assert.equal(model.atoms.filter(a=>a.role==='endCap').length,8);
+    for (let r=1;r<=repeats;r++) {
+      const named=Object.fromEntries(model.atoms.map((a,i)=>[a.residue===r?a.name:'',i]));
+      assert.equal(neighbors[named.C1].filter(i=>model.atoms[i].element==='H').length,2);
+      assert.equal(neighbors[named.C4].filter(i=>model.atoms[i].element==='H').length,0);
+      assert.equal(neighbors[named.C5].filter(i=>model.atoms[i].element==='H').length,3);
+      assert.equal(model.atoms.some(a=>a.residue===r&&(a.name==='H1'||a.name==='H7')),false);
+    }
+    for (const [end,number,residue,attachment] of [['head',1,1,model.metadata.units[0].head],['tail',2,repeats,model.metadata.units.at(-1).tail]]) {
+      const cap=model.metadata.endCaps[end], c=model.atoms[cap.carbon];
+      assert.equal(cap.attachment,attachment);
+      assert.equal(c.name,`CM${number}`);
+      assert.equal(c.residue,residue);
+      assert.equal(c.element,'C');
+      assert.equal(c.charge,0);
+      assert.deepEqual(new Set(neighbors[cap.carbon]),new Set([attachment,...cap.hydrogens]));
+      for (const [i,h] of cap.hydrogens.entries()) {
+        assert.equal(model.atoms[h].name,`HM${number}${i+1}`);
+        assert.equal(model.atoms[h].element,'H');
+        assert.equal(model.atoms[h].charge,0);
+        assert.equal(model.atoms[h].endCap,end);
+        assert.deepEqual(neighbors[h],[cap.carbon]);
+      }
+    }
+    const elements=atoms=>atoms.reduce((m,a)=>(m[a.element]=(m[a.element]||0)+1,m),{});
+    const actual=elements(model.atoms),source=elements(template.atoms);
+    assert.equal(actual.C,repeats*source.C+2);
+    assert.equal(actual.H,repeats*source.H-2*repeats+6);
+    assert.match(toPDB(model),/BOTH MAIN-CHAIN ENDS CAPPED BY NEUTRAL CH3/);
+    assert.match(toSDF(model),/>  <END_CAPS>\nNeutral CH3 at both main-chain endpoints/);
+  }
 });
 
 test('invalid selections and non-finite export coordinates are rejected',()=>{

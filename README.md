@@ -2,7 +2,7 @@
 
 A local-first, English-language molecular workspace for assembling cationic polymers from 16 verified PDB/MOL2 building blocks.
 
-Choose **PA, QA, GD, or IL**, choose **4, 6, 8, or 10 alkyl carbons**, and connect **1–100 repeat units**. Inspect the resulting molecular structure in an interactive 3D viewer, inspect the capped repeat unit in 2D, and download PDB, SDF, or a JSON build recipe.
+Choose **PA, QA, GD, or IL**, choose **4, 6, 8, or 10 alkyl carbons**, and connect **1–100 repeat units** with **CH3 caps at both ends**. The selected monomer's 2D structure is always shown above the interactive 3D polymer, so both structures can be inspected together. Download the polymer as PDB, SDF, or a JSON build recipe.
 
 ## Run locally
 
@@ -44,7 +44,11 @@ For each successive repeat, the browser builder:
 3. Rigidly places the new template using the cap-bond directions and adds a 1.53 Å C4–C1 bond.
 4. Searches candidate torsions around the new bond to reduce close contacts and favor an extended starting chain.
 
-The two outer termini remain hydrogen-capped. For a source template with `A` atoms and `B` bonds, a chain of `n` units contains `n*A − 2*(n−1)` atoms, `n*B − (n−1)` bonds, and formal charge `+n`.
+After the repeat units are connected, the two remaining outer cap hydrogens are replaced by **new, neutral CH3 groups**: one bonds to the first unit's C1 and one to the last unit's C4. The original C5 pendant methyl remains intact. This also applies to a single-repeat build. The original source files and monomer reference diagrams stay unchanged and H-capped.
+
+For a source template with `A` atoms and `B` bonds, the methyl-capped chain contains `n*A − 2*n + 8` atoms, `n*B − n + 7` bonds, and formal charge `+n`. Relative to the earlier H-capped chain, the difference is `C2H4` (+6 atoms and +6 bonds). The builder replaces 2*n source cap hydrogens in total and adds two carbons plus six methyl hydrogens. Within every repeat, C1 is CH2 and C4 has no hydrogen.
+
+The head methyl atoms are named `CM1/HM11/HM12/HM13` in the first residue; the tail methyl atoms are `CM2/HM21/HM22/HM23` in the last residue. Methyl-cap bonds and hydrogen geometry are explicitly constructed. End-cap atom indices are recorded in the build metadata and the exported PDB/SDF includes all cap atoms and bonds.
 
 **These are initial assembled coordinates, not energy-minimized polymer conformations.** A valid molecule graph does not establish an equilibrium conformation or a simulation-ready force field. Tacticity is not controlled, no counterions or solvent are added, and source monomer partial charges/parameters are not reused as a polymer topology. Minimize and parameterize the final chain before molecular dynamics.
 
@@ -53,10 +57,10 @@ The two outer termini remain hydrogen-capped. For a source template with `A` ato
 - Drag to rotate; Shift-drag or right-drag to pan; scroll or pinch to zoom.
 - Use the hydrogen toggle, ball-and-stick/wireframe selector, automatic rotation, reset, and expanded view.
 - Keyboard: arrow keys rotate, `+`/`-` zoom, and `0` resets the focused viewer.
-- The Repeat unit tab displays the selected hydrogen-capped chemical structure.
+- The **Monomer structure** panel continuously displays the selected original H-capped reference above the **CH3-capped polymer**. Select its diagram to open a larger view, or download the source PDB.
 - **PDB** exports all atoms, coordinates in angstroms, residue identities, formal charge fields, and CONECT records. Repeated CONECT targets encode multiple bonds using the convention supported by RDKit and other molecular tools; SDF provides an explicit bond-order format.
 - **SDF V3000** preserves explicit bond orders and supports models with more than 999 atoms.
-- **JSON recipe** records settings, counts, assembly notes, and source provenance. It is a record of the build; importing recipes is not currently supported.
+- **JSON recipe** records settings, counts, methyl end caps, assembly notes, and source provenance. It is a record of the build; importing recipes is not currently supported. Polymer download filenames include `_CH3` to distinguish these structures from earlier H-capped exports.
 
 Changing a selection does not silently replace the built polymer. Click **Build polymer** to apply changes. Downloads always correspond to the last successfully built polymer, and the preview status indicates pending changes. The URL records the last successful configuration for easy reopening.
 

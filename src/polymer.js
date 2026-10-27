@@ -5,6 +5,7 @@
 const GROUPS = new Set(['PA', 'QA', 'GD', 'IL']);
 const LENGTHS = new Set([4, 6, 8, 10]);
 const CC_LENGTH = 1.53;
+const CH_LENGTH = 1.09;
 const subtract = (a, b) => a.map((v, i) => v - b[i]);
 const add = (a, b) => a.map((v, i) => v + b[i]);
 const scale = (a, s) => a.map(v => v * s);
@@ -51,7 +52,8 @@ function formulaFor(atoms, charge) {
 }
 
 /** Build one linear, homotypic chain with two pendent groups per repeat.
- * n repeats remove exactly 2(n-1) cap hydrogens and add n-1 C4--C1 bonds.
+ * All 2n source attachment hydrogens are removed. Add n-1 C4--C1 bonds
+ * and one neutral CH3 group at each main-chain endpoint.
  */
 export function buildPolymer(templates, {group, carbons, repeats}) {
   const template = getTemplate(templates, group, carbons);
@@ -69,6 +71,7 @@ export function buildPolymer(templates, {group, carbons, repeats}) {
   const original = source.map(xyz), origin = original[head];
   const firstDirection = unit(subtract(original[tail], origin));
   let previous = original.map(p => align(subtract(p, origin), firstDirection, [1,0,0]));
+  const firstPlaced = previous;
   const atoms = [], bonds = [], units = [];
   // A spatial hash makes candidate checking scale with nearby atoms, not the
   // entire growing chain. Hydrogens are retained in the graph and exports.
@@ -123,7 +126,7 @@ export function buildPolymer(templates, {group, carbons, repeats}) {
     }
     const mapping = new Map();
     for (let i=0; i<source.length; i++) {
-      if ((repeat > 0 && i === headCap) || (repeat < repeats-1 && i === tailCap)) continue;
+      if (i === headCap || i === tailCap) continue;
       const atom = source[i], point = placed[i];
       mapping.set(i, atoms.length);
       atoms.push({id: atoms.length+1, name: atom.name, element: atom.element,
@@ -138,16 +141,72 @@ export function buildPolymer(templates, {group, carbons, repeats}) {
     units.push({head: mapping.get(head), tail: mapping.get(tail)});
     previous = placed;
   }
+  const endCaps = {};
+  let endCapClashPenalty = 0;
+  function addMethylCap(end, attachmentIndex, removedCapPosition, capNumber) {
+    const boundary = atoms[attachmentIndex], attachmentPosition = xyz(boundary);
+    const outward = unit(subtract(removedCapPosition, attachmentPosition));
+    const carbonPosition = add(attachmentPosition, scale(outward, CC_LENGTH));
+    const perpendicular = unit(cross(outward, Math.abs(outward[0]) < 0.8 ? [1,0,0] : [0,1,0]));
+    const second = cross(outward, perpendicular);
+    let best = null;
+    // A tetrahedral methyl has three equivalent 120-degree-spaced hydrogens.
+    // Sample its unique 120-degree torsional range to reduce cap contacts.
+    for (let degrees=0; degrees<120; degrees+=10) {
+      const hydrogens = [0,1,2].map(i => {
+        const theta = (degrees + i*120)*Math.PI/180;
+        const radial = add(scale(perpendicular, Math.cos(theta)), scale(second, Math.sin(theta)));
+        const direction = add(scale(outward, 1/3), scale(radial, Math.sqrt(8/9)));
+        return add(carbonPosition, scale(direction, CH_LENGTH));
+      });
+      let penalty = 0;
+      for (const point of hydrogens) for (let i=0; i<atoms.length; i++) {
+        if (i === attachmentIndex) continue; // This is a bonded 1-3 contact.
+        const clearance = atoms[i].element === 'H' ? 1.6 : 2.0;
+        const distance = norm(subtract(point, xyz(atoms[i])));
+        if (distance < clearance) penalty += (clearance-distance)**2;
+      }
+      if (!best || penalty < best.penalty) best = {hydrogens, penalty};
+    }
+    const append = (name, element, point) => {
+      const index = atoms.length;
+      atoms.push({id:index+1, name, element, x:point[0], y:point[1], z:point[2], charge:0,
+        residue:boundary.residue, residueName:boundary.residueName, role:'endCap', endCap:end});
+      return index;
+    };
+    const carbon = append(`CM${capNumber}`, 'C', carbonPosition);
+    const hydrogens = best.hydrogens.map((point,i) => append(`HM${capNumber}${i+1}`, 'H', point));
+    bonds.push({a:attachmentIndex,b:carbon,order:1}, ...hydrogens.map(h=>({a:carbon,b:h,order:1})));
+    endCaps[end] = {attachment:attachmentIndex,carbon,hydrogens};
+    endCapClashPenalty += best.penalty;
+  }
+  addMethylCap('head', units[0].head, firstPlaced[headCap], 1);
+  addMethylCap('tail', units[repeats-1].tail, previous[tailCap], 2);
+  // Keep each PDB residue contiguous: the head cap belongs beside repeat 1,
+  // rather than appearing after the last repeat with a restarted residue ID.
+  const ordered = atoms.map((_,i)=>i).sort((a,b)=>atoms[a].residue-atoms[b].residue || a-b);
+  const remap = new Map(ordered.map((old,index)=>[old,index]));
+  const sortedAtoms = ordered.map((old,index)=>({...atoms[old],id:index+1}));
+  atoms.splice(0,atoms.length,...sortedAtoms);
+  for (const bond of bonds) {bond.a=remap.get(bond.a);bond.b=remap.get(bond.b);}
+  for (const item of units) {item.head=remap.get(item.head);item.tail=remap.get(item.tail);}
+  for (const cap of Object.values(endCaps)) {
+    cap.attachment=remap.get(cap.attachment);
+    cap.carbon=remap.get(cap.carbon);
+    cap.hydrogens=cap.hydrogens.map(i=>remap.get(i));
+  }
   const charge = atoms.reduce((sum, a) => sum+a.charge, 0);
   return {atoms, bonds,
     stats: {atoms: atoms.length, bonds: bonds.length, formula: formulaFor(atoms, charge), charge, repeats},
     metadata: {name: `${group}_${carbons}_DP${repeats}`, group, carbons, repeats,
       template: template.name, source: template.source, templateGeometry: template.geometry,
       connection: 'C4(i)-C1(i+1); C5 is retained as the pendent methyl group',
-      removedHydrogens: 2*(repeats-1), units, bondLengthAngstrom: CC_LENGTH,
-      geometry: 'Rigid conformer assembly with tetrahedral attachment vectors and inter-repeat rotamer screening; no full-polymer minimization',
+      removedHydrogens: 2*repeats, addedCapAtoms:8, addedCapBonds:8, endCaps,
+      endCapChemistry:'Neutral CH3 at both main-chain endpoints; C5 pendent methyl retained',
+      units, bondLengthAngstrom: CC_LENGTH, capCHBondLengthAngstrom:CH_LENGTH,
+      geometry: 'Rigid conformer assembly with tetrahedral attachment vectors, inter-repeat rotamer screening and methyl-cap torsion screening; no full-polymer minimization',
       stereochemistry: 'One representative template geometry repeated; tacticity is not user-controlled',
-      assemblyClashPenalty, counterions: 'Not included'}};
+      assemblyClashPenalty, endCapClashPenalty, counterions: 'Not included'}};
 }
 
 function validateExport(model) {
@@ -171,6 +230,8 @@ export function toPDB(model) {
     `TITLE     ${model.metadata?.name || 'POLYMER'}`,
     'REMARK 200 INITIAL CONFORMER ASSEMBLY; NO FULL-POLYMER MINIMIZATION',
     'REMARK 200 C4(I)-C1(I+1); C5 IS A PENDENT METHYL; ANGSTROM UNITS',
+    'REMARK 200 BOTH MAIN-CHAIN ENDS CAPPED BY NEUTRAL CH3 GROUPS',
+    'REMARK 200 HEAD CAP CM1/HM11/HM12/HM13; TAIL CAP CM2/HM21/HM22/HM23',
     'REMARK 200 FORMAL CHARGES AND REPEATED CONECT TARGET BOND ORDERS',
     'REMARK 200 SDF ALSO AVAILABLE FOR EXPLICIT BOND ORDER INTERCHANGE'];
   for (let i=0; i<model.atoms.length; i++) {
@@ -210,6 +271,8 @@ export function toSDF(model) {
     '>  <FORMAL_CHARGE>', String(model.stats.charge), '',
     '>  <FORMULA>', model.stats.formula, '',
     '>  <ATOM_LABELS>', model.atoms.map(a=>`${a.id}:${a.residue}:${a.name}`).join(' '), '',
+    '>  <END_CAPS>', model.metadata?.endCapChemistry || '', '',
+    '>  <END_CAP_ATOM_INDICES_ZERO_BASED>', JSON.stringify(model.metadata?.endCaps || {}), '',
     '>  <GEOMETRY_METHOD>', model.metadata?.geometry || 'Initial structure', '',
     '>  <SOURCE_SHA256>', JSON.stringify(model.metadata?.source || {}), '', '$$$$');
   return lines.join('\n')+'\n';
